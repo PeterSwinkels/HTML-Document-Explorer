@@ -83,7 +83,7 @@ Option Explicit
 
 'This procedure gives the command to scan for HTML documents.
 Private Sub GetDocumentList()
-Rem on error Resume Next
+On Error Resume Next
    Me.MousePointer = vbHourglass
    DocumentTable.Enabled = False
    ElementTable.Enabled = False
@@ -96,13 +96,13 @@ End Sub
 
 'This procedure updates the status bar.
 Private Sub UpdateStatusBar()
-Rem on error Resume Next
+On Error Resume Next
    StatusBar.Text = "Documents: " & CStr(DocumentTable.rows - 1) & " - Elements: " & CStr(ElementTable.rows - 1)
 End Sub
 
 'This procedure gives the command to retrieve the selected HTML document's elements and attributes.
 Private Sub DocumentTable_Click()
-Rem on error Resume Next
+On Error Resume Next
    If DocumentTable.Row > 0 Then
       Me.MousePointer = vbHourglass
       DocumentTable.Enabled = False
@@ -116,21 +116,21 @@ End Sub
 
 'This procedure gives the command to update the status bar.
 Private Sub DocumentTable_RowColChange()
-Rem on error Resume Next
+On Error Resume Next
    UpdateStatusBar
 End Sub
 
 
 'This procedure gives the command to update the status bar.
 Private Sub ElementTable_RowColChange()
-Rem on error Resume Next
+On Error Resume Next
    UpdateStatusBar
 End Sub
 
 
 'This procedure initializes this window.
 Private Sub Form_Load()
-Rem on error Resume Next
+On Error Resume Next
    With App
       Me.Caption = .Title & ", v" & CStr(.Major) & "." & CStr(.Minor) & CStr(.Revision) & " - by: " & .CompanyName
    End With
@@ -143,7 +143,7 @@ End Sub
 
 'This procedure adjusts this window's controls to its new size.
 Private Sub Form_Resize()
-Rem on error Resume Next
+On Error Resume Next
    DocumentTable.Width = Me.ScaleWidth - 2
    DocumentTable.Height = (Me.ScaleHeight - 1) / 3
    DocumentTable.ColWidth(0) = (Me.Width / 2.1)
@@ -162,27 +162,27 @@ End Sub
 
 'This procedure closes this program when this window is closed.
 Private Sub Form_Unload(Cancel As Integer)
-Rem on error Resume Next
+On Error Resume Next
    End
 End Sub
 
 'This procedure displays information about this program.
 Private Sub InformationMenu_Click()
-Rem on error Resume Next
+On Error Resume Next
    MsgBox App.Comments, vbInformation
 End Sub
 
 
 'This procedure closes this window.
 Private Sub QuitMenu_Click()
-Rem on error Resume Next
+On Error Resume Next
    Unload Me
 End Sub
 
 
 'This procedure gives the command to scan for HTML documents.
 Private Sub RefreshMenu_Click()
-Rem on error Resume Next
+On Error Resume Next
    GetDocumentList
 End Sub
 
