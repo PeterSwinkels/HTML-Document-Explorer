@@ -83,7 +83,7 @@ Option Explicit
 
 'This procedure gives the command to scan for HTML documents.
 Private Sub GetDocumentList()
-On Error Resume Next
+On Error GoTo ErrorTrap
    Me.MousePointer = vbHourglass
    DocumentTable.Enabled = False
    ElementTable.Enabled = False
@@ -92,17 +92,29 @@ On Error Resume Next
    DocumentTable.Enabled = True
    ElementTable.Enabled = True
    Me.MousePointer = vbDefault
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
 
 'This procedure updates the status bar.
 Private Sub UpdateStatusBar()
-On Error Resume Next
+On Error GoTo ErrorTrap
    StatusBar.Text = "Documents: " & CStr(DocumentTable.rows - 1) & " - Elements: " & CStr(ElementTable.rows - 1)
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
 
 'This procedure gives the command to retrieve the selected HTML document's elements and attributes.
 Private Sub DocumentTable_Click()
-On Error Resume Next
+On Error GoTo ErrorTrap
    If DocumentTable.Row > 0 Then
       Me.MousePointer = vbHourglass
       DocumentTable.Enabled = False
@@ -112,25 +124,41 @@ On Error Resume Next
       ElementTable.Enabled = True
       Me.MousePointer = vbDefault
    End If
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
 
 'This procedure gives the command to update the status bar.
 Private Sub DocumentTable_RowColChange()
-On Error Resume Next
+On Error GoTo ErrorTrap
    UpdateStatusBar
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
-
 
 'This procedure gives the command to update the status bar.
 Private Sub ElementTable_RowColChange()
-On Error Resume Next
+On Error GoTo ErrorTrap
    UpdateStatusBar
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
-
 
 'This procedure initializes this window.
 Private Sub Form_Load()
-On Error Resume Next
+On Error GoTo ErrorTrap
    With App
       Me.Caption = .Title & ", v" & CStr(.Major) & "." & CStr(.Minor) & CStr(.Revision) & " - by: " & .CompanyName
    End With
@@ -139,6 +167,12 @@ On Error Resume Next
    Me.Height = Screen.Height / 1.5
    
    GetDocumentList
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
 
 'This procedure adjusts this window's controls to its new size.
@@ -159,32 +193,39 @@ On Error Resume Next
    StatusBar.Width = Me.ScaleWidth - 2
 End Sub
 
-
-'This procedure closes this program when this window is closed.
-Private Sub Form_Unload(Cancel As Integer)
-On Error Resume Next
-   End
-End Sub
-
 'This procedure displays information about this program.
 Private Sub InformationMenu_Click()
-On Error Resume Next
+On Error GoTo ErrorTrap
    MsgBox App.Comments, vbInformation
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
-
 
 'This procedure closes this window.
 Private Sub QuitMenu_Click()
-On Error Resume Next
+On Error GoTo ErrorTrap
    Unload Me
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
-
 
 'This procedure gives the command to scan for HTML documents.
 Private Sub RefreshMenu_Click()
-On Error Resume Next
+On Error GoTo ErrorTrap
    GetDocumentList
+EndProcedure:
+   Exit Sub
+   
+ErrorTrap:
+   HandleError
+   Resume EndProcedure
 End Sub
-
-
 
