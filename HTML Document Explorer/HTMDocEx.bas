@@ -10,19 +10,13 @@ Private Type REFIID
    Data4(0 To 7) As Byte
 End Type
 
-Private Const DISP_E_MEMBERNOTFOUND As Long = &H80020003
 Private Const ERROR_ACCESS_DENIED As Long = 5
 Private Const ERROR_PROC_NOT_FOUND As Long = 127
 Private Const ERROR_SUCCESS As Long = 0
-Private Const E_FAIL As Long = &H80004005
-Private Const E_INVALIDARG As Long = &H80000003
-Private Const E_NOTIMP As Long = &H80004001
-Private Const E_OUTOFMEMORY As Long = &H8007000E
 Private Const FORMAT_MESSAGE_FROM_SYSTEM As Long = &H1000&
 Private Const FORMAT_MESSAGE_IGNORE_INSERTS As Long = &H200&
 Private Const PROCESS_QUERY_INFORMATION As Long = &H400&
 Private Const SMTO_ABORTIFHUNG As Long = &H2&
-Private Const S_FALSE As Long = &H1&
 Private Const S_OK As Long = &H0&
 
 Private Declare Function CloseHandle Lib "Kernel32.dll" (ByVal hObject As Long) As Long
