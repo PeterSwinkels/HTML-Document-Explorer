@@ -46,12 +46,11 @@ Private Const NO_MESSAGE As Long = 0       'Indicates "no window message."
 Private Const NONE As Long = -1            'Indicates "no HTML document."
 
 'This procedure checks the specified window for a HTML document and returns it if found.
-Private Function CheckForDocument(WindowH As Long) As HTMLDocument
+Private Function CheckForDocument(WindowH As Long, Message As Long) As HTMLDocument
 On Error GoTo ErrorTrap
 Dim DocumentO As HTMLDocument
 Dim DocumentREFIID As REFIID
 Dim LResult As Long
-Dim Message As Long
 
    Set DocumentO = Nothing
    
@@ -69,11 +68,8 @@ Dim Message As Long
       .Data4(7) = &H37
    End With
    
-   Message = CheckForError(RegisterWindowMessageA("WM_HTML_GETOBJECT"))
-   If Not Message = NO_MESSAGE Then
-      CheckForError SendMessageTimeoutA(WindowH, Message, CLng(0), CLng(0), SMTO_ABORTIFHUNG, CLng(1000), LResult), ERROR_ACCESS_DENIED
-      If Not LResult = 0 Then CheckForError ObjectFromLresult(LResult, DocumentREFIID, CLng(0), DocumentO), ERROR_PROC_NOT_FOUND
-   End If
+   CheckForError SendMessageTimeoutA(WindowH, Message, CLng(0), CLng(0), SMTO_ABORTIFHUNG, CLng(1000), LResult), ERROR_ACCESS_DENIED
+   If Not LResult = 0 Then CheckForError ObjectFromLresult(LResult, DocumentREFIID, CLng(0), DocumentO), ERROR_PROC_NOT_FOUND
    
 EndProcedure:
    Set CheckForDocument = DocumentO
@@ -362,7 +358,7 @@ End Function
 'This procedure handles any active child windows.
 Private Function HandleChildWindows(ByVal hwnd As Long, ByVal lParam As Long) As Long
 On Error GoTo ErrorTrap
-   DocumentList AddWindowH:=hwnd, AddDocumentO:=CheckForDocument(hwnd)
+   DocumentList AddWindowH:=hwnd, AddDocumentO:=CheckForDocument(hwnd, lParam)
    
 EndProcedure:
    HandleChildWindows = CLng(True)
@@ -397,8 +393,8 @@ End Sub
 'This procedure handles any active windows.
 Private Function HandleWindows(ByVal hwnd As Long, ByVal lParam As Long) As Long
 On Error GoTo ErrorTrap
-   DocumentList AddWindowH:=hwnd, AddDocumentO:=CheckForDocument(hwnd)
-   CheckForError EnumChildWindows(hwnd, AddressOf HandleChildWindows, CLng(0)), ERROR_PROC_NOT_FOUND
+   DocumentList AddWindowH:=hwnd, AddDocumentO:=CheckForDocument(hwnd, lParam)
+   CheckForError EnumChildWindows(hwnd, AddressOf HandleChildWindows, lParam), ERROR_PROC_NOT_FOUND
    
 EndProcedure:
    HandleWindows = CLng(True)
@@ -445,17 +441,23 @@ Public Sub ScanForDocuments()
 On Error GoTo ErrorTrap
 Dim Document As HTMLDocumentStr
 Dim Index As Long
+Dim Message As Long
 
-   DocumentList , , , Refresh:=True
-   CheckForError EnumWindows(AddressOf HandleWindows, CLng(0)), ERROR_PROC_NOT_FOUND
+   Message = CheckForError(RegisterWindowMessageA("WM_HTML_GETOBJECT"))
    
-   Index = 0
-   Do
-      Document = DocumentList(, , Index:=Index)
-      If Document.DocumentO Is Nothing Then Exit Do
-      If Not HasParent(Document.DocumentO) Then CheckForFrames Document
-      Index = Index + 1
-   Loop
+   If Not Message = NO_MESSAGE Then
+      DocumentList , , , Refresh:=True
+      CheckForError EnumWindows(AddressOf HandleWindows, Message), ERROR_PROC_NOT_FOUND
+      
+      Index = 0
+      Do
+         Document = DocumentList(, , Index:=Index)
+         If Document.DocumentO Is Nothing Then Exit Do
+         If Not HasParent(Document.DocumentO) Then CheckForFrames Document
+         Index = Index + 1
+      Loop
+   End If
+   
 EndProcedure:
    Exit Sub
    
