@@ -35,24 +35,23 @@ Private Declare Function SendMessageTimeoutA Lib "User32.dll" (ByVal hwnd As Lon
 
 'This structure defines the information for any active HTML documents found.
 Public Type HTMLDocumentStr
-   DocumentO As HTMLDocument   'Contains the reference to a HTML document.
-   ErrorMessage As String      'Contains a message if an error has occurred.
-   WindowH As Long             'Contains the handle of the window containing the document.
+   DocumentO As HTMLDocument   'Defines the reference to a HTML document.
+   ErrorMessage As String      'Defines a message if an error has occurred.
+   WindowH As Long             'Defines the handle of the window containing the document.
 End Type
 
-Private Const MAX_PATH As Long = 260       'The maximum number of characters allowed for a file path.
-Private Const MAX_STRING As Long = 65535   'The maximum number of characters used for a string buffer.
-Private Const NO_MESSAGE As Long = 0       'Indicates "no window message."
-Private Const NONE As Long = -1            'Indicates "no HTML document."
+Private Const MAX_PATH As Long = 260       'Defines the maximum number of characters allowed for a file path.
+Private Const MAX_STRING As Long = 65535   'Defines the maximum number of characters used for a string buffer.
+Private Const NO_HANDLE As Long = 0        'Defines "no handle".
+Private Const NO_MESSAGE As Long = 0       'Defines "no window message."
+Private Const NONE As Long = -1            'Defines "no HTML document."
 
 'This procedure checks the specified window for a HTML document and returns it if found.
-Private Function CheckForDocument(WindowH As Long, Message As Long) As HTMLDocument
+Private Function CheckForDocument(WindowH As Long, WMHTMLGetObjectMessage As Long) As HTMLDocument
 On Error GoTo ErrorTrap
 Dim DocumentO As HTMLDocument
 Dim DocumentREFIID As REFIID
 Dim LResult As Long
-
-   Set DocumentO = Nothing
    
    With DocumentREFIID
       .Data1 = &H626FC520
@@ -68,7 +67,8 @@ Dim LResult As Long
       .Data4(7) = &H37
    End With
    
-   CheckForError SendMessageTimeoutA(WindowH, Message, CLng(0), CLng(0), SMTO_ABORTIFHUNG, CLng(1000), LResult), ERROR_ACCESS_DENIED
+   CheckForError SendMessageTimeoutA(WindowH, WMHTMLGetObjectMessage, CLng(0), CLng(0), SMTO_ABORTIFHUNG, CLng(1000), LResult), ERROR_ACCESS_DENIED
+   Set DocumentO = Nothing
    If Not LResult = 0 Then CheckForError ObjectFromLresult(LResult, DocumentREFIID, CLng(0), DocumentO), ERROR_PROC_NOT_FOUND
    
 EndProcedure:
@@ -115,34 +115,42 @@ ErrorTrap:
    Resume EndProcedure
 End Function
 
-'This procedure scans any frames in the specified HTML document for other documents.
-Private Sub CheckForFrames(Document As HTMLDocumentStr)
+'This procedure checks for frames in the specified HTML document.
+Private Sub CheckForFrames(DocumentO As HTMLDocumentStr)
 On Error GoTo ErrorTrap
-Dim DocumentO As HTMLDocument
 Dim ErrorMessage As String
-Dim Frame() As Long
+Dim Frame As HTMLDocument
+Dim FrameIndex() As Long
 Dim NextFrame As HTMLDocument
+Dim Parents() As HTMLDocument
 Dim Level As Long
 
    Level = 0
-   ReDim Frame(Level) As Long
-   Set DocumentO = Document.DocumentO
-   Do Until (Level = 0) And (Frame(Level) >= DocumentO.frames.Length)
-      Do While Frame(Level) < DocumentO.frames.Length
-         Set NextFrame = GetFrame(DocumentO, Frame(Level), ErrorMessage)
-         If NextFrame Is Nothing Then Exit Do Else Set DocumentO = NextFrame
+   ReDim FrameIndex(0 To Level) As Long
+   ReDim Parents(0 To Level) As HTMLDocument
+   Set Frame = DocumentO.DocumentO
+   Do Until (Level = 0) And (FrameIndex(Level) >= Frame.frames.Length)
+      Do While FrameIndex(Level) < Frame.frames.Length
+         Set NextFrame = GetFrame(Frame, FrameIndex(Level), ErrorMessage)
+         If NextFrame Is Nothing Then Exit Do
          Level = Level + 1
-         ReDim Preserve Frame(Level) As Long
+         ReDim Preserve FrameIndex(0 To Level) As Long
+         ReDim Preserve Parents(0 To Level) As HTMLDocument
+         Set Parents(Level) = Frame
+         Set Frame = NextFrame
       Loop
+      
       If NextFrame Is Nothing Then
-         DocumentList AddWindowH:=Document.WindowH, AddDocumentO:=Nothing, Refresh:=False, NewErrorMessage:=ErrorMessage
+         DocumentList AddWindowH:=DocumentO.WindowH, AddDocument:=Nothing, Refresh:=False, NewErrorMessage:=ErrorMessage
       Else
-         DocumentList AddWindowH:=Document.WindowH, AddDocumentO:=DocumentO
-         Set DocumentO = DocumentO.frames.Parent.Document
+         DocumentList AddWindowH:=DocumentO.WindowH, AddDocument:=Frame
+         Set Frame = Parents(Level)
          Level = Level - 1
-         ReDim Preserve Frame(Level) As Long
+         ReDim Preserve FrameIndex(0 To Level) As Long
+         ReDim Preserve Parents(0 To Level) As HTMLDocument
       End If
-      If Frame(Level) < DocumentO.frames.Length Then Frame(Level) = Frame(Level) + 1
+      
+      If FrameIndex(Level) < Frame.frames.Length Then FrameIndex(Level) = FrameIndex(Level) + 1
    Loop
 EndProcedure:
    Exit Sub
@@ -153,22 +161,22 @@ ErrorTrap:
 End Sub
 
 'This procedure maintains a list of all active HTML documents found.
-Public Function DocumentList(Optional AddWindowH As Long = 0, Optional AddDocumentO As HTMLDocument = Nothing, Optional Index As Long = NONE, Optional Refresh As Boolean = False, Optional NewErrorMessage As String = Empty) As HTMLDocumentStr
+Public Function DocumentList(Optional AddWindowH As Long = 0, Optional AddDocument As HTMLDocument = Nothing, Optional Index As Long = NONE, Optional Refresh As Boolean = False, Optional NewErrorMessage As String = Empty) As HTMLDocumentStr
 On Error GoTo ErrorTrap
-Dim Result As HTMLDocumentStr
+Dim DocumentO As HTMLDocumentStr
 Static DocumentsO() As HTMLDocumentStr
 
-   Set Result.DocumentO = Nothing
-   Result.WindowH = 0
+   Set DocumentO.DocumentO = Nothing
+   DocumentO.WindowH = 0
       
-   If Not AddDocumentO Is Nothing Then
+   If Not AddDocument Is Nothing Then
       If CheckForError(SafeArrayGetDim(DocumentsO())) = 0 Then
          ReDim DocumentsO(0 To 0) As HTMLDocumentStr
       Else
          ReDim Preserve DocumentsO(0 To UBound(DocumentsO()) + 1) As HTMLDocumentStr
       End If
       
-      Set DocumentsO(UBound(DocumentsO())).DocumentO = AddDocumentO
+      Set DocumentsO(UBound(DocumentsO())).DocumentO = AddDocument
       DocumentsO(UBound(DocumentsO())).WindowH = AddWindowH
    ElseIf Not NewErrorMessage = vbNullString Then
       If CheckForError(SafeArrayGetDim(DocumentsO())) = 0 Then
@@ -181,14 +189,14 @@ Static DocumentsO() As HTMLDocumentStr
       DocumentsO(UBound(DocumentsO())).WindowH = AddWindowH
    ElseIf Not Index = NONE Then
       If Not CheckForError(SafeArrayGetDim(DocumentsO())) = 0 Then
-         If Index >= LBound(DocumentsO()) And Index <= UBound(DocumentsO()) Then Result = DocumentsO(Index)
+         If Index >= LBound(DocumentsO()) And Index <= UBound(DocumentsO()) Then DocumentO = DocumentsO(Index)
       End If
    ElseIf Refresh Then
       Erase DocumentsO()
    End If
    
 EndProcedure:
-   DocumentList = Result
+   DocumentList = DocumentO
    Exit Function
    
 ErrorTrap:
@@ -257,48 +265,53 @@ End Sub
 'This procedure fills the specified table with a list of elements found in the specified HTML document.
 Public Sub FillElementTable(Table As MSFlexGrid, DocumentO As HTMLDocument)
 On Error GoTo ErrorTrap
-Dim Item As Long
-Dim Node As Long
+Dim ItemIndex As Long
+Dim NodeIndex As Long
 
    With Table
       .rows = 1
       .Row = 0
-      .Col = 0: .ColAlignment(0) = flexAlignLeftCenter: .Text = "Element:"
-      .Col = 1: .ColAlignment(1) = flexAlignLeftCenter: .Text = "Attributes:"
+      .Col = 0
+      .ColAlignment(0) = flexAlignLeftCenter
+      .Text = "Element:"
+      .Col = 1
+      .ColAlignment(1) = flexAlignLeftCenter
+      .Text = "Attributes:"
    End With
    
    With DocumentO.All
-      For Item = 0 To .Length - 1
+      For ItemIndex = 0 To .Length - 1
          With Table
             .rows = .rows + 1
             .Row = .rows - 1
             .Col = 0
          End With
          
-         Table.Text = .Item(Item).tagName
+         Table.Text = .Item(ItemIndex).tagName
          
-         If Not IsNull(.Item(Item).Attributes) Then
-            Table.Col = 1: Table.Text = vbNullString
-            If Not .Item(Item).Attributes Is Nothing Then
-               For Node = 0 To .Item(Item).Attributes.Length - 1
-                  If Not IsNull(.Item(Item).Attributes(Node).nodeValue) Then
-                     If IsObject(.Item(Item).Attributes(Node).nodeValue) Then
-                        If Not .Item(Item).Attributes(Node).nodeValue Is Nothing Then
-                           Table.Text = Table.Text & .Item(Item).Attributes(Node).nodeName & " = " & TypeName(.Item(Item).Attributes(Node).nodeValue) & vbCrLf
+         If Not IsNull(.Item(ItemIndex).Attributes) Then
+            Table.Col = 1
+            Table.Text = vbNullString
+            If Not .Item(ItemIndex).Attributes Is Nothing Then
+               For NodeIndex = 0 To .Item(ItemIndex).Attributes.Length - 1
+                  If Not IsNull(.Item(ItemIndex).Attributes(NodeIndex).nodeValue) Then
+                     If IsObject(.Item(ItemIndex).Attributes(NodeIndex).nodeValue) Then
+                        If Not .Item(ItemIndex).Attributes(NodeIndex).nodeValue Is Nothing Then
+                           Table.Text = Table.Text & .Item(ItemIndex).Attributes(NodeIndex).nodeName & " = " & TypeName(.Item(ItemIndex).Attributes(NodeIndex).nodeValue) & vbCrLf
                         End If
                      Else
-                        If Not .Item(Item).Attributes(Node).nodeValue = vbNullString Then
-                           Table.Text = Table.Text & .Item(Item).Attributes(Node).nodeName & " = " & .Item(Item).Attributes(Node).nodeValue & vbCrLf
+                        If Not .Item(ItemIndex).Attributes(NodeIndex).nodeValue = vbNullString Then
+                           Table.Text = Table.Text & .Item(ItemIndex).Attributes(NodeIndex).nodeName & " = " & .Item(ItemIndex).Attributes(NodeIndex).nodeValue & vbCrLf
                         End If
                      End If
                   End If
-               Next Node
+               Next NodeIndex
             End If
          End If
          Table.RowHeight(Table.Row) = Table.Parent.TextHeight(Table.TextMatrix(Table.Row, 1)) * 240
 NextItem:
          If DoEvents() = 0 Then Exit For
-      Next Item
+      Next ItemIndex
    End With
    Exit Sub
    
@@ -311,14 +324,14 @@ ErrorTrap:
 End Sub
 
 'This procedure attempts to retrieve and return the specified frame.
-Private Function GetFrame(DocumentO As HTMLDocument, Frame As Long, ErrorMessage As String) As HTMLDocument
+Private Function GetFrame(DocumentO As HTMLDocument, FrameIndex As Long, ErrorMessage As String) As HTMLDocument
 On Error GoTo ErrorTrap
-Dim Result As HTMLDocument
+Dim Frame As HTMLDocument
    
    ErrorMessage = vbNullString
-   Set Result = Nothing
-   Set Result = DocumentO.frames(Frame).Document
-   Set GetFrame = Result
+   Set Frame = Nothing
+   Set Frame = DocumentO.frames(FrameIndex).Document
+   Set GetFrame = Frame
    Exit Function
    
 ErrorTrap:
@@ -332,21 +345,21 @@ On Error GoTo ErrorTrap
 Dim Length As Long
 Dim ProcessH As Long
 Dim ProcessId As Long
-Dim Result As String
+Dim ProcessName As String
 
-   Result = vbNullString
+   ProcessName = vbNullString
    CheckForError GetWindowThreadProcessId(WindowH, ProcessId)
    
    ProcessH = CheckForError(OpenProcess(PROCESS_QUERY_INFORMATION, CLng(False), ProcessId))
-   If Not ProcessH = 0 Then
-      Result = String$(MAX_PATH, vbNullChar)
-      Length = CheckForError(GetProcessImageFileNameW(ProcessH, StrPtr(Result), Len(Result)))
-      Result = Left$(Result, Length)
+   If Not ProcessH = NO_HANDLE Then
+      ProcessName = String$(MAX_PATH, vbNullChar)
+      Length = CheckForError(GetProcessImageFileNameW(ProcessH, StrPtr(ProcessName), Len(ProcessName)))
+      ProcessName = Left$(ProcessName, Length)
       CheckForError CloseHandle(ProcessH)
    End If
    
 EndProcedure:
-   GetWindowProcess = Result
+   GetWindowProcess = ProcessName
    Exit Function
    
 ErrorTrap:
@@ -358,7 +371,7 @@ End Function
 'This procedure handles any active child windows.
 Private Function HandleChildWindows(ByVal hwnd As Long, ByVal lParam As Long) As Long
 On Error GoTo ErrorTrap
-   DocumentList AddWindowH:=hwnd, AddDocumentO:=CheckForDocument(hwnd, lParam)
+   DocumentList AddWindowH:=hwnd, AddDocument:=CheckForDocument(hwnd, lParam)
    
 EndProcedure:
    HandleChildWindows = CLng(True)
@@ -372,7 +385,7 @@ End Function
 'This procedure handles any errors that occur.
 Public Sub HandleError()
 Dim Choice As Long
-Dim Description As Long
+Dim Description As String
 Dim ErrorCode As Long
 
    Description = Err.Description
@@ -393,7 +406,7 @@ End Sub
 'This procedure handles any active windows.
 Private Function HandleWindows(ByVal hwnd As Long, ByVal lParam As Long) As Long
 On Error GoTo ErrorTrap
-   DocumentList AddWindowH:=hwnd, AddDocumentO:=CheckForDocument(hwnd, lParam)
+   DocumentList AddWindowH:=hwnd, AddDocument:=CheckForDocument(hwnd, lParam)
    CheckForError EnumChildWindows(hwnd, AddressOf HandleChildWindows, lParam), ERROR_PROC_NOT_FOUND
    
 EndProcedure:
@@ -439,21 +452,21 @@ End Sub
 'This procedure scans for HTMl documents in all active windows and any document frames.
 Public Sub ScanForDocuments()
 On Error GoTo ErrorTrap
-Dim Document As HTMLDocumentStr
+Dim DocumentO As HTMLDocumentStr
 Dim Index As Long
-Dim Message As Long
+Dim WMHTMLGetObjectMessage As Long
 
-   Message = CheckForError(RegisterWindowMessageA("WM_HTML_GETOBJECT"))
+   WMHTMLGetObjectMessage = CheckForError(RegisterWindowMessageA("WM_HTML_GETOBJECT"))
    
-   If Not Message = NO_MESSAGE Then
+   If Not WMHTMLGetObjectMessage = NO_MESSAGE Then
       DocumentList , , , Refresh:=True
-      CheckForError EnumWindows(AddressOf HandleWindows, Message), ERROR_PROC_NOT_FOUND
+      CheckForError EnumWindows(AddressOf HandleWindows, WMHTMLGetObjectMessage), ERROR_PROC_NOT_FOUND
       
       Index = 0
       Do
-         Document = DocumentList(, , Index:=Index)
-         If Document.DocumentO Is Nothing Then Exit Do
-         If Not HasParent(Document.DocumentO) Then CheckForFrames Document
+         DocumentO = DocumentList(, , Index:=Index)
+         If DocumentO.DocumentO Is Nothing Then Exit Do
+         If Not HasParent(DocumentO.DocumentO) Then CheckForFrames DocumentO
          Index = Index + 1
       Loop
    End If
